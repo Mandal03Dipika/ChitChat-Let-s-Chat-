@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import { Loader } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 import { useThemeStore } from "./store/useThemeStore";
+import Contacts from "./pages/Contacts";
 
 function App() {
   const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
@@ -17,7 +18,7 @@ function App() {
 
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+  }, []);
 
   if (isCheckingAuth && !authUser) {
     return (
@@ -48,6 +49,10 @@ function App() {
           <Route
             path="/profile"
             element={authUser ? <Profile /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/users"
+            element={authUser ? <Contacts /> : <Navigate to="/login" />}
           />
         </Routes>
         <Toaster />

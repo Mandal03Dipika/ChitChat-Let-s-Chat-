@@ -1,19 +1,22 @@
 import { Send } from "lucide-react";
-import React from "react";
 import { useThemeStore } from "../store/useThemeStore";
 import { Themes } from "../constants";
 
 const PREVIEW_MESSAGES = [
-  { id: 1, content: "Hey! How are you?", isSent: false },
+  { id: 1, content: "Hey Dipika! How are you?", isSent: false },
   { id: 2, content: "Good! What about you?", isSent: true },
 ];
 
 function Setting() {
-  const { theme, setTheme } = useThemeStore();
+  const { theme, setTheme, bgImage } = useThemeStore();
 
   return (
-    <>
-      <div className="container max-w-5xl px-4 pt-20 mx-auto">
+    <div
+      className="relative min-h-screen transition-all duration-500 bg-center bg-cover"
+      style={{ backgroundImage: `url(${bgImage})` }}
+    >
+      <div className="absolute inset-0 bg-black/20"></div>
+      <div className="container relative max-w-5xl px-4 pt-20 mx-auto">
         <div className="space-y-6">
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-semibold">Theme</h2>
@@ -26,10 +29,8 @@ function Setting() {
             {Themes.map((t) => (
               <button
                 key={t}
-                className={`
-            group flex flex-col items-center gap-1.5 p-2 rounded-lg transition-colors
-            ${theme === t ? "bg-base-200" : "hover:bg-base-200/50"}
-          `}
+                className={`group flex flex-col items-center gap-1.5 p-2 rounded-lg transition-colors
+                  ${theme === t ? "bg-base-200" : "hover:bg-base-200/50"}`}
                 onClick={() => setTheme(t)}
               >
                 <div
@@ -74,25 +75,19 @@ function Setting() {
                         }`}
                       >
                         <div
-                          className={`
-                      max-w-[80%] rounded-xl p-3 shadow-sm
-                      ${
-                        message.isSent
-                          ? "bg-primary text-primary-content"
-                          : "bg-base-200"
-                      }
-                    `}
+                          className={`max-w-[80%] rounded-xl p-3 shadow-sm ${
+                            message.isSent
+                              ? "bg-primary text-primary-content"
+                              : "bg-base-200"
+                          }`}
                         >
                           <p className="text-sm">{message.content}</p>
                           <p
-                            className={`
-                        text-[10px] mt-1.5
-                        ${
-                          message.isSent
-                            ? "text-primary-content/70"
-                            : "text-base-content/70"
-                        }
-                      `}
+                            className={`text-[10px] mt-1.5 ${
+                              message.isSent
+                                ? "text-primary-content/70"
+                                : "text-base-content/70"
+                            }`}
                           >
                             12:00 PM
                           </p>
@@ -120,7 +115,7 @@ function Setting() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

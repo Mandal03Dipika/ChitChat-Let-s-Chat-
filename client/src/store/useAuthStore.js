@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import { axiosClient } from "../library/axios.js";
-import toast from "react-hot-toast";
 import { io } from "socket.io-client";
+import toast from "react-hot-toast";
 
+// const BASE_URL = "https://gossip.backend.wishalpha.com";
 const BASE_URL = "http://localhost:7001";
 
 export const useAuthStore = create((set, get) => ({
@@ -14,91 +14,139 @@ export const useAuthStore = create((set, get) => ({
   onlineUsers: [],
   socket: null,
 
+  connectSocket: () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    const socket = io(BASE_URL, {
+      auth: { token },
+    });
+    socket.on("connect");
+    socket.on("getOnlineUsers", (userIds) => {
+      set({ onlineUsers: userIds });
+    });
+    socket.on("connect_error", (err) => {
+      if (err.message.includes("Authentication error")) {
+        toast.error("Session expired. Logging out...");
+        localStorage.removeItem("token");
+        set({ authUser: null });
+        get().disconnectSocket();
+      }
+    });
+    set({ socket });
+  },
+
   checkAuth: async () => {
-    try {
-      const res = await axiosClient.get("/auth/check");
-      set({ authUser: res.data });
-      get().connectSocket();
-    } catch (error) {
-      set({ authUser: null });
-      console.log("Error in check auth", error);
-    } finally {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      set({ authUser: null, isCheckingAuth: false });
+      return;
+    }
+    const socket = io(BASE_URL, { auth: { token } });
+    socket.connect();
+    set({ socket });
+    socket.emit("checkAuth", null, (response) => {
+      if (response.success) {
+        set({ authUser: response.user });
+      } else {
+        toast.error("Session expired. Please login again.");
+        localStorage.removeItem("token");
+        set({ authUser: null });
+        get().disconnectSocket();
+      }
       set({ isCheckingAuth: false });
+    });
+    socket.on("getOnlineUsers", (userIds) => {
+      set({ onlineUsers: userIds });
+    });
+    socket.on("connect_error", (err) => {
+      if (err.message.includes("Authentication error")) {
+        toast.error("Session expired. Logging out...");
+        localStorage.removeItem("token");
+        set({ authUser: null });
+        get().disconnectSocket();
+      }
+    });
+  },
+
+  disconnectSocket: () => {
+    const socket = get().socket;
+    if (socket?.connected) {
+      socket.disconnect();
+      set({ socket: null, onlineUsers: [] });
     }
   },
 
   register: async (data) => {
     set({ isSigningUp: true });
-    try {
-      const res = await axiosClient.post("/auth/register", data);
-      set({ authUser: res.data });
-      toast.success("Account Created Successfully");
-      get().connectSocket();
-    } catch (error) {
-      console.log("Error in register", error);
-      toast.error(error.response.data.message);
-    } finally {
+    const socket = io(BASE_URL, {
+      auth: {
+        event: "register",
+      },
+    });
+    socket.emit("register", data, (response) => {
+      if (response.success) {
+        set({ authUser: response.user });
+        localStorage.setItem("token", response.user.token);
+        toast.success("Account Created Successfully");
+        socket.disconnect();
+        get().connectSocket();
+      } else {
+        toast.error(response.error || "Registration failed");
+        socket.disconnect();
+      }
       set({ isSigningUp: false });
-    }
-  },
-
-  logout: async () => {
-    try {
-      await axiosClient.post("/auth/logout");
-      set({ authUser: null });
-      toast.success("Logged Out Successfully");
-      get().disconnectSocket();
-    } catch (error) {
-      console.log("Error in logout", error);
-      toast.error(error.response.data.message);
-    }
+    });
   },
 
   login: async (data) => {
     set({ isLoggingIn: true });
-    try {
-      const res = await axiosClient.post("/auth/login", data);
-      set({ authUser: res.data });
-      toast.success("Logged in Successfully");
-      get().connectSocket();
-    } catch (error) {
-      console.log("Error in login", error);
-      toast.error(error.response.data.message);
-    } finally {
+    const socket = io(BASE_URL, {
+      auth: {
+        event: "login",
+      },
+    });
+    socket.emit("login", data, (response) => {
+      if (response.success) {
+        set({ authUser: response.user });
+        localStorage.setItem("token", response.user.token);
+        toast.success("Logged in Successfully");
+        socket.disconnect();
+        get().connectSocket();
+      } else {
+        toast.error(response.error || "Login failed");
+        socket.disconnect();
+      }
       set({ isLoggingIn: false });
-    }
-  },
-
-  connectSocket: async () => {
-    const { authUser } = get();
-    if (!authUser || get().socket?.connected) {
-      return;
-    }
-    const socket = io(BASE_URL, { query: { userId: authUser._id } });
-    socket.connect();
-    set({ socket: socket });
-    socket.on("getOnlineUsers", (userIds) => {
-      set({ onlineUsers: userIds });
     });
   },
 
-  disconnectSocket: async () => {
-    if (get().socket?.connected) {
-      get().socket.disconnect();
-    }
+  logout: async () => {
+    const socket = get().socket;
+    if (!socket) return;
+    socket.emit("logout", {}, (response) => {
+      if (response.success) {
+        set({ authUser: null });
+        toast.success("Logged Out Successfully");
+        get().disconnectSocket();
+        localStorage.removeItem("token");
+      } else {
+        toast.error(response.error || "Logout failed");
+      }
+    });
   },
 
   update: async (data) => {
+    const socket = get().socket;
+    const userId = get().authUser?._id;
     set({ isUpdatingProfile: true });
-    try {
-      const res = await axiosClient.put("/auth/update", data);
-      set({ authUser: res.data });
-      toast.success("Profile Updated Successfully");
-    } catch (error) {
-      console.log("Error in update profile", error);
-      toast.error(error.response.data.message);
-    } finally {
+    socket.emit("update", { ...data, userId }, (response) => {
+      if (response.success) {
+        set({ authUser: response.user });
+        toast.success("Profile Updated Successfully");
+      } else {
+        toast.error(response.error || "Profile update failed");
+      }
       set({ isUpdatingProfile: false });
-    }
+    });
   },
 }));

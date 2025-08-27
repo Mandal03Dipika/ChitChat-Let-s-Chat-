@@ -7,13 +7,17 @@ const messageSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    groupId: { type: mongoose.Schema.Types.ObjectId, ref: "Group" },
     receiverId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: function () {
+        return !this.groupId;
+      },
     },
     text: { type: String },
-    image: { type: String },
+    file: { type: String },
+    fileType: { type: String },
   },
   { timestamps: true }
 );

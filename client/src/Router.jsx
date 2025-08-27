@@ -6,6 +6,7 @@ import GuestLayout from "./layouts/GuestLayout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Setting from "./pages/Setting";
+import Contacts from "./pages/Contacts";
 
 const Router = createBrowserRouter([
   {
@@ -13,12 +14,16 @@ const Router = createBrowserRouter([
     element: <DefaultLayout />,
     children: [
       {
-        path: "",
+        index: true,
         element: <Home />,
       },
       {
         path: "profile",
         element: <Profile />,
+      },
+      {
+        path: "users",
+        element: <Contacts />,
       },
     ],
   },

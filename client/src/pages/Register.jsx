@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import {
   Eye,
@@ -9,7 +9,7 @@ import {
   MessageSquare,
   User,
 } from "lucide-react";
-import { Link, Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import AuthImagePattern from "../components/Register/AuthImagePattern";
 import toast from "react-hot-toast";
 
@@ -44,6 +44,7 @@ function Register() {
   const handleSubmit = (event) => {
     event.preventDefault();
     const success = validateForm();
+    console.log(formData);
     if (success) {
       register(formData);
     }
