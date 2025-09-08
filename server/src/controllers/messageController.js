@@ -4,6 +4,36 @@ import { getReceiverSocketId, io } from "../library/socket.js";
 import Group from "../models/groupModel.js";
 import Message from "../models/messageModel.js";
 import User from "../models/userModel.js";
+import crypto from "crypto";
+
+const SECRET_KEY = process.env.MESSAGE_SECRET || "mysecretkey1234567890123456";
+
+export const encryptMessage = (message) => {
+  const iv = crypto.randomBytes(16);
+  const key = crypto.createHash("sha256").update(SECRET_KEY).digest();
+  const cipher = crypto.createCipheriv(
+    "aes-256-cbc",
+    Buffer.from(key, "utf-8"),
+    iv
+  );
+  let encrypted = cipher.update(message, "utf-8", "hex");
+  encrypted += cipher.final("hex");
+  return iv.toString("hex") + ":" + encrypted;
+};
+
+export const decryptMessage = (encryptedMessage) => {
+  const [ivHex, encrypted] = encryptedMessage.split(":");
+  const iv = Buffer.from(ivHex, "hex");
+  const key = crypto.createHash("sha256").update(SECRET_KEY).digest();
+  const decipher = crypto.createDecipheriv(
+    "aes-256-cbc",
+    Buffer.from(key, "utf-8"),
+    iv
+  );
+  let decrypted = decipher.update(encrypted, "hex", "utf-8");
+  decrypted += decipher.final("utf-8");
+  return decrypted;
+};
 
 const uploadToCloudinary = async (file) => {
   const uploadResponse = await cloudinary.uploader.upload(file, {
@@ -24,6 +54,7 @@ export const getUsersForSidebar = async (socket, data, callback) => {
     const friendsIds = currentUser.friends || [];
     const users = await User.find({
       _id: { $nin: [userId, ...friendsIds] },
+      blockedByCount: { $lt: 5 },
     }).select("-password");
     callback({ success: true, users });
   } catch (error) {
@@ -64,7 +95,11 @@ export const getMessages = async (socket, data, callback) => {
         { senderId: receiverObjectId, receiverId: senderObjectId },
       ],
     }).sort({ createdAt: 1 });
-    callback({ success: true, messages });
+    const decryptedMessages = messages.map((msg) => ({
+      ...msg.toObject(),
+      text: msg.text ? decryptMessage(msg.text) : null,
+    }));
+    callback({ success: true, decryptedMessages });
   } catch (error) {
     console.error("Error in getMessages:", error.message);
     callback({ error: "Internal Server Error" });
@@ -100,20 +135,28 @@ export const sendMessage = async (socket, data, callback) => {
       fileUrl = url;
       fileType = type;
     }
+    let encryptedText = null;
+    if (text) {
+      encryptedText = encryptMessage(text);
+    }
     const newMessage = new Message({
       senderId,
       receiverId,
-      text,
+      text: encryptedText,
       file: fileUrl,
       fileType,
     });
     await newMessage.save();
+    const decryptedMessage = {
+      ...newMessage.toObject(),
+      text: text || null,
+    };
     const receiverSocketId = getReceiverSocketId(receiverId);
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", newMessage);
+      io.to(receiverSocketId).emit("newMessage", decryptedMessage);
     }
-    socket.emit("newMessage", newMessage);
-    callback({ success: true, message: newMessage });
+    socket.emit("newMessage", decryptedMessage);
+    callback({ success: true, message: decryptedMessage });
   } catch (error) {
     console.error("Error in sendMessage:", error.message);
     callback({ error: "Internal Server Error" });
@@ -132,9 +175,25 @@ export const blockUser = async (socket, data, callback) => {
     if (userId === blockUserId) {
       return callback({ error: "You cannot block yourself" });
     }
-    await User.findByIdAndUpdate(userId, {
-      $addToSet: { blockedUsers: blockUserId },
-    });
+    await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { blockedUsers: blockUserId } },
+      { new: true }
+    );
+    const blockedUser = await User.findByIdAndUpdate(
+      blockUserId,
+      { $inc: { blockedByCount: 1 } },
+      { new: true }
+    );
+    if (blockedUser.blockedByCount >= 5) {
+      const receiverSocketId = getReceiverSocketId(blockUserId);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("forceLogout", {
+          message: "You have been blocked by 5 or more users.",
+        });
+        io.sockets.sockets.get(receiverSocketId)?.disconnect(true);
+      }
+    }
     callback({ success: true, message: "User blocked successfully" });
   } catch (error) {
     console.error("Error in blockUser:", error.message);
@@ -151,8 +210,13 @@ export const unblockUser = async (socket, data, callback) => {
     ) {
       return callback({ error: "Invalid user IDs" });
     }
-    await User.findByIdAndUpdate(userId, {
-      $pull: { blockedUsers: unblockUserId },
+    await User.findByIdAndUpdate(
+      userId,
+      { $pull: { blockedUsers: unblockUserId } },
+      { new: true }
+    );
+    await User.findByIdAndUpdate(unblockUserId, {
+      $inc: { blockedByCount: -1 },
     });
     callback({ success: true, message: "User unblocked successfully" });
   } catch (error) {
@@ -208,22 +272,30 @@ export const sendGroupMessage = async (socket, data, callback) => {
       fileUrl = url;
       fileType = type;
     }
+    let encryptedText = null;
+    if (text) {
+      encryptedText = encryptMessage(text);
+    }
     const newMessage = new Message({
       senderId,
       groupId,
-      text,
+      text: encryptedText,
       file: fileUrl,
       fileType,
     });
     await newMessage.save();
+    const decryptedMessage = {
+      ...newMessage.toObject(),
+      text: text || null,
+    };
     const group = await Group.findById(groupId);
     group.members.forEach((member) => {
       const memberSocketId = getReceiverSocketId(member._id.toString());
       if (memberSocketId) {
-        io.to(memberSocketId).emit("newGroupMessage", newMessage);
+        io.to(memberSocketId).emit("newGroupMessage", decryptedMessage);
       }
     });
-    callback({ success: true, message: newMessage });
+    callback({ success: true, message: decryptedMessage });
   } catch (error) {
     console.log("Error in sendGroupMessage: ", error.message);
     callback({ error: "Internal Server Error" });
@@ -233,8 +305,13 @@ export const sendGroupMessage = async (socket, data, callback) => {
 export const getGroupMessages = async (socket, data, callback) => {
   try {
     const { groupId } = data;
-    const messages = await Message.find({ groupId });
-    callback({ success: true, messages });
+    // const messages = await Message.find({ groupId });
+    const messages = await Message.find({ groupId }).sort({ createdAt: 1 });
+    const decryptedMessages = messages.map((msg) => ({
+      ...msg.toObject(),
+      text: msg.text ? decryptMessage(msg.text) : null,
+    }));
+    callback({ success: true, decryptedMessages });
   } catch (error) {
     console.log("Error in getGroupMessages: ", error.message);
     callback({ error: "Internal Server Error" });
@@ -244,20 +321,69 @@ export const getGroupMessages = async (socket, data, callback) => {
 export const getGroupsForSidebar = async (socket, data, callback) => {
   try {
     const { userId } = data;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return callback({ error: "Invalid user ID" });
+    }
     const groups = await Group.find({
       $or: [{ members: userId }, { admins: userId }],
-    }).select("-__v");
-    callback({ success: true, groups });
+    })
+      .select("name members admins createdAt profilePic")
+      .lean();
+    if (!groups || groups.length === 0) {
+      return callback({ success: true, groups: [] });
+    }
+    const groupsWithLastMessage = await Promise.all(
+      groups.map(async (group) => {
+        const lastMsg = await Message.findOne({ groupId: group._id })
+          .sort({ createdAt: -1 })
+          .select("text file fileType createdAt senderId")
+          .populate("senderId", "name profilePic")
+          .lean();
+        let lastMessage = null;
+        if (lastMsg) {
+          if (lastMsg.text) {
+            try {
+              lastMessage = decryptMessage(lastMsg.text);
+            } catch (err) {
+              console.error("Group decryption failed:", err.message);
+              lastMessage = "[Unable to decrypt]";
+            }
+          } else if (lastMsg.fileType) {
+            lastMessage = `[${lastMsg.fileType.toUpperCase()}]`;
+          }
+        }
+        return {
+          ...group,
+          lastMessage,
+          lastMessageAt: lastMsg ? lastMsg.createdAt : null,
+          lastMessageSender: lastMsg ? lastMsg.senderId : null,
+        };
+      })
+    );
+    const sortedGroups = groupsWithLastMessage.sort(
+      (a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0)
+    );
+    callback({
+      success: true,
+      groups: sortedGroups,
+    });
   } catch (error) {
-    console.log("Error in getGroupsForSidebar: ", error.message);
-    callback({ error: "Failed to fetch groups." });
+    console.error("Error in getGroupsForSidebar:", error.message);
+    callback({ error: "Internal Server Error" });
   }
 };
 
 export const getUser = async (socket, data, callback) => {
   try {
     const { userId } = data;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return callback({ error: "Invalid user ID" });
+    }
     const user = await User.findById(userId);
+    if (!user) return callback({ error: "User not found" });
+    if (user.blockedByCount >= 5) {
+      return callback({ error: "This user is restricted" });
+    }
     callback({ success: true, user });
   } catch (error) {
     console.log("Error in getUser: ", error.message);
@@ -564,30 +690,55 @@ export const getFriendRequests = async (socket, data, callback) => {
   }
 };
 
-// Backend: Get Friends
 export const getFriends = async (socket, data, callback) => {
   try {
     const { userId } = data;
-
-    // Validate user ID
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return callback({ error: "Invalid user ID" });
     }
-
-    // Fetch user with friends populated
-    const user = await User.findById(userId).populate(
-      "friends",
-      "username email avatar"
-    );
-
+    const user = await User.findById(userId).populate("friends");
     if (!user) {
       return callback({ error: "User not found" });
     }
-
-    // Return the list of friends
+    const validFriends = user.friends.filter((f) => f.blockedByCount < 5);
+    const friendsWithLastMessage = await Promise.all(
+      validFriends.map(async (friend) => {
+        const lastMsg = await Message.findOne({
+          groupId: null,
+          $or: [
+            { senderId: userId, receiverId: friend._id },
+            { senderId: friend._id, receiverId: userId },
+          ],
+        })
+          .sort({ createdAt: -1 })
+          .select("text file fileType createdAt")
+          .lean();
+        let lastMessage = null;
+        if (lastMsg) {
+          if (lastMsg.text) {
+            try {
+              lastMessage = decryptMessage(lastMsg.text);
+            } catch (err) {
+              console.error("Decryption failed:", err.message);
+              lastMessage = "[Unable to decrypt]";
+            }
+          } else if (lastMsg.fileType) {
+            lastMessage = `[${lastMsg.fileType.toUpperCase()}]`;
+          }
+        }
+        return {
+          ...friend.toObject(),
+          lastMessage,
+          lastMessageAt: lastMsg ? lastMsg.createdAt : null,
+        };
+      })
+    );
+    const sortedFriends = friendsWithLastMessage.sort(
+      (a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0)
+    );
     callback({
       success: true,
-      friends: user.friends,
+      friends: sortedFriends,
     });
   } catch (error) {
     console.error("Error in getFriends:", error.message);

@@ -12,6 +12,7 @@ import {
 import { Link } from "react-router-dom";
 import AuthImagePattern from "../components/Register/AuthImagePattern";
 import toast from "react-hot-toast";
+import OtpVerification from "./OtpVerification";
 
 function Register() {
   const [showPassword, setShowPassword] = useState(false);
@@ -20,6 +21,8 @@ function Register() {
     email: "",
     password: "",
   });
+  const [isOtpStage, setIsOtpStage] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
   const { register, isSigningUp } = useAuthStore();
 
   const validateForm = () => {
@@ -44,11 +47,27 @@ function Register() {
   const handleSubmit = (event) => {
     event.preventDefault();
     const success = validateForm();
-    console.log(formData);
     if (success) {
-      register(formData);
+      register(formData, (res) => {
+        if (res.success) {
+          toast.success("OTP sent to your email");
+          setRegisteredEmail(formData.email);
+          setIsOtpStage(true);
+        } else {
+          toast.error(res.error);
+        }
+      });
     }
   };
+
+  if (isOtpStage) {
+    return (
+      <OtpVerification
+        email={registeredEmail}
+        onBackToRegister={() => setIsOtpStage(false)}
+      />
+    );
+  }
 
   return (
     <>
@@ -77,8 +96,8 @@ function Register() {
                   </div>
                   <input
                     type="text"
-                    className="w-full pl-10 input input-bordered"
-                    placeholder="John Doe"
+                    className="w-full pl-10 input input-bordered placeholder:text-base-content/40"
+                    placeholder="Dipika Mandal"
                     value={formData.name}
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
@@ -96,7 +115,7 @@ function Register() {
                   </div>
                   <input
                     type="email"
-                    className="w-full pl-10 input input-bordered"
+                    className="w-full pl-10 input input-bordered placeholder:text-base-content/40"
                     placeholder="you@example.com"
                     value={formData.email}
                     onChange={(e) =>
@@ -115,7 +134,7 @@ function Register() {
                   </div>
                   <input
                     type={showPassword ? "text" : "password"}
-                    className="w-full pl-10 input input-bordered"
+                    className="w-full pl-10 input input-bordered placeholder:text-base-content/40"
                     placeholder="••••••••"
                     value={formData.password}
                     onChange={(e) =>
@@ -152,7 +171,7 @@ function Register() {
             </form>
             <div className="text-center">
               <p className="text-base-content/60">
-                Already have an account?
+                Already have an account?{" "}
                 <Link to="/login" className="link link-primary">
                   Sign in
                 </Link>

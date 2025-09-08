@@ -46,6 +46,7 @@ function MessageInput() {
     const messageData = {
       text: text.trim(),
       file: fileData,
+      fileType: file ? file.type : null,
     };
     try {
       if (selectedGroup) await sendGroupMessages(messageData);
@@ -73,7 +74,6 @@ function MessageInput() {
 
   const renderFilePreview = () => {
     if (!filePreview) return null;
-
     if (file?.type.startsWith("image/")) {
       return (
         <img
@@ -83,7 +83,6 @@ function MessageInput() {
         />
       );
     }
-
     if (file?.type.startsWith("video/")) {
       return (
         <video
@@ -111,7 +110,6 @@ function MessageInput() {
           </div>
         </div>
       )}
-
       <form onSubmit={handleSendMessage} className="flex items-center gap-2">
         <div className="flex flex-1 gap-2">
           <input
@@ -142,7 +140,7 @@ function MessageInput() {
         </div>
         <button
           type="submit"
-          className="btn btn-sm btn-circle"
+          className="p-2 btn btn-circle bg-primary"
           disabled={!text.trim() && !file}
         >
           <Send size={22} />

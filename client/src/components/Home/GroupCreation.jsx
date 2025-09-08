@@ -5,7 +5,7 @@ import { Camera } from "lucide-react";
 import toast from "react-hot-toast";
 
 function GroupCreation() {
-  const { users, setGroupCreation, newGroup, getGroups } = useChatStore();
+  const { friends, setGroupCreation, newGroup } = useChatStore();
 
   const { authUser } = useAuthStore();
 
@@ -114,7 +114,7 @@ function GroupCreation() {
           <div>
             <label className="label">Select Members</label>
             <div className="p-3 overflow-y-auto rounded-lg h-60 bg-base-200">
-              {users.map((user) => (
+              {friends.map((user) => (
                 <div key={user._id} className="form-control">
                   <label className="justify-start gap-3 cursor-pointer label">
                     <input

@@ -11,6 +11,7 @@ import { Loader } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 import { useThemeStore } from "./store/useThemeStore";
 import Contacts from "./pages/Contacts";
+import ForgotPassword from "./pages/ForgotPassword";
 
 function App() {
   const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
@@ -18,6 +19,12 @@ function App() {
 
   useEffect(() => {
     checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
   }, []);
 
   if (isCheckingAuth && !authUser) {
@@ -40,6 +47,10 @@ function App() {
           <Route
             path="/register"
             element={!authUser ? <Register /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/forgot-password"
+            element={!authUser ? <ForgotPassword /> : <Navigate to="/" />}
           />
           <Route
             path="/login"

@@ -90,7 +90,7 @@ function Contacts() {
                           ? "bg-yellow-500 hover:bg-yellow-600 scale-105 animate-pulse"
                           : received
                           ? "bg-gray-400 cursor-not-allowed"
-                          : "bg-blue-500 hover:bg-blue-600 hover:scale-105"
+                          : "bg-primary hover:scale-105"
                       }`}
                     >
                       <UserPlus className="w-5 h-5 text-white" />

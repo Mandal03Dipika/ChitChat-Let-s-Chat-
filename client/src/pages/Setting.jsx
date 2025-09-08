@@ -8,7 +8,7 @@ const PREVIEW_MESSAGES = [
 ];
 
 function Setting() {
-  const { theme, setTheme, bgImage } = useThemeStore();
+  const { theme, setTheme, bgImage, chatImage } = useThemeStore();
 
   return (
     <div
@@ -24,7 +24,6 @@ function Setting() {
               Choose a theme for your chat interface
             </p>
           </div>
-
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8">
             {Themes.map((t) => (
               <button
@@ -66,34 +65,40 @@ function Setting() {
                       </div>
                     </div>
                   </div>
-                  <div className="p-4 space-y-4 min-h-[200px] max-h-[200px] overflow-y-auto bg-base-100">
-                    {PREVIEW_MESSAGES.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${
-                          message.isSent ? "justify-end" : "justify-start"
-                        }`}
-                      >
+                  <div className="relative min-h-[200px] max-h-[200px] overflow-y-auto">
+                    <div
+                      className="absolute inset-0 bg-center bg-cover pointer-events-none opacity-70"
+                      style={{ backgroundImage: `url(${chatImage})` }}
+                    ></div>
+                    <div className="relative p-4 space-y-4">
+                      {PREVIEW_MESSAGES.map((message) => (
                         <div
-                          className={`max-w-[80%] rounded-xl p-3 shadow-sm ${
-                            message.isSent
-                              ? "bg-primary text-primary-content"
-                              : "bg-base-200"
+                          key={message.id}
+                          className={`flex ${
+                            message.isSent ? "justify-end" : "justify-start"
                           }`}
                         >
-                          <p className="text-sm">{message.content}</p>
-                          <p
-                            className={`text-[10px] mt-1.5 ${
+                          <div
+                            className={`max-w-[80%] rounded-xl p-3 shadow-sm ${
                               message.isSent
-                                ? "text-primary-content/70"
-                                : "text-base-content/70"
+                                ? "bg-primary text-primary-content"
+                                : "bg-base-200"
                             }`}
                           >
-                            12:00 PM
-                          </p>
+                            <p className="text-sm">{message.content}</p>
+                            <p
+                              className={`text-[10px] mt-1.5 ${
+                                message.isSent
+                                  ? "text-primary-content/70"
+                                  : "text-base-content/70"
+                              }`}
+                            >
+                              12:00 PM
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                   <div className="p-4 border-t border-base-300 bg-base-100">
                     <div className="flex gap-2">

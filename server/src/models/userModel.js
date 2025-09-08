@@ -10,6 +10,12 @@ const userSchema = mongoose.Schema(
     friends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     friendRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     sentRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    isVerified: { type: Boolean, default: false },
+    otp: { type: String },
+    otpExpiry: { type: Date },
+    resendOtpCount: { type: Number, default: 0 },
+    resendOtpLast: { type: Date },
+    blockedByCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

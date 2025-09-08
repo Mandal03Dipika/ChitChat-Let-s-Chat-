@@ -37,3 +37,14 @@ export const themeBackgrounds = {
   // winter: "/images/bg-winter.jpg",
   // sunset: "/images/bg-sunset.jpg",
 };
+
+export const themeChats = {
+  light: "/images/bg-light.jpg",
+  cupcake: "/images/cupcake.png",
+  bumblebee: "/images/bg-bumblebee.jpg",
+  valentine: "/images/valentine.png",
+  dracula: "/images/dracula.png",
+  lemonade: "/images/lemonade.png",
+  night: "/images/night.png",
+  coffee: "/images/bg-coffee.jpg",
+};

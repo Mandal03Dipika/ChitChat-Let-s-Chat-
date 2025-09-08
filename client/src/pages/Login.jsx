@@ -59,7 +59,7 @@ function Login() {
                   </div>
                   <input
                     type="email"
-                    className="w-full pl-10 input input-bordered"
+                    className="w-full pl-10 input input-bordered placeholder:text-base-content/40"
                     placeholder="you@example.com"
                     value={formData.email}
                     onChange={(e) =>
@@ -78,7 +78,7 @@ function Login() {
                   </div>
                   <input
                     type={showPassword ? "text" : "password"}
-                    className="w-full pl-10 input input-bordered"
+                    className="w-full pl-10 input input-bordered placeholder:text-base-content/40"
                     placeholder="••••••••"
                     value={formData.password}
                     onChange={(e) =>
@@ -115,16 +115,19 @@ function Login() {
             </form>
             <div className="text-center">
               <p className="text-base-content/60">
-                Don&apos;t have an account?
+                Don&apos;t have an account?{" "}
                 <Link to="/register" className="link link-primary">
                   Sign up
                 </Link>
               </p>
+              <Link to="/forgot-password" className="link link-primary">
+                Forgot Password?
+              </Link>
             </div>
           </div>
         </div>
         <AuthImagePattern
-          title={"Welcome back!"}
+          title={"Welcome!"}
           subtitle={
             "Sign in to continue your conversations and catch up with your messages."
           }

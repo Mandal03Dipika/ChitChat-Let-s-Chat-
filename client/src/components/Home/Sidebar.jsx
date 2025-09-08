@@ -1,5 +1,5 @@
-import { Users, Users2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Users } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
 import { useChatStore } from "../../store/useChatStore";
 import SidebarSkeleton from "../Skeletons/SidebarSkeleton";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -19,16 +19,30 @@ function Sidebar() {
     setGroupCreation,
   } = useChatStore();
 
-  const { onlineUsers } = useAuthStore();
+  const { onlineFriends, getOnlineFriends } = useAuthStore();
 
   const [selectedTab, setSelectedTab] = useState("chats");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
 
-  const filteredUsers = showOnlineOnly
-    ? friends.filter((user) => onlineUsers.includes(user._id))
-    : friends;
+  const filteredUsers = useMemo(() => {
+    let list = showOnlineOnly
+      ? friends.filter((user) => onlineFriends.some((f) => f._id === user._id))
+      : friends;
+    return [...list].sort(
+      (a, b) =>
+        new Date(b.lastMessageAt || 0).getTime() -
+        new Date(a.lastMessageAt || 0).getTime()
+    );
+  }, [friends, showOnlineOnly, onlineFriends]);
+
+  const sortedGroups = useMemo(() => {
+    return [...groups].sort(
+      (a, b) =>
+        new Date(b.lastMessageAt || 0).getTime() -
+        new Date(a.lastMessageAt || 0).getTime()
+    );
+  }, [groups]);
 
   useEffect(() => {
     getFriends();
@@ -38,9 +52,26 @@ function Sidebar() {
     getGroups();
   }, [getGroups]);
 
-  if (isUsersLoading) return <SidebarSkeleton />;
+  useEffect(() => {
+    if (friends.length > 0) {
+      getOnlineFriends();
+    }
+  }, [friends, getOnlineFriends]);
 
-  if (isGroupLoading) return <SidebarSkeleton />;
+  if (isUsersLoading || isGroupLoading) return <SidebarSkeleton />;
+
+  const isOnline = (id) => onlineFriends.some((f) => f._id === id);
+
+  const formatTime = (dateString) => {
+    if (!dateString) return "";
+    const diffMs = Date.now() - new Date(dateString).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHrs = Math.floor(diffMins / 60);
+    if (diffHrs < 24) return `${diffHrs}h ago`;
+    return new Date(dateString).toLocaleDateString();
+  };
 
   return (
     <>
@@ -60,8 +91,8 @@ function Sidebar() {
       )}
       <aside
         className={`fixed z-50 top-0 left-0 h-full bg-base-100 border-r border-base-300 transition-transform duration-300 ease-in-out
-    ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} 
-    lg:translate-x-0 lg:static lg:flex lg:flex-col w-64`}
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} 
+          lg:translate-x-0 lg:static lg:flex lg:flex-col w-64`}
       >
         <div className="flex items-center justify-between p-3 border-b border-base-300">
           <button
@@ -100,7 +131,7 @@ function Sidebar() {
                 <span className="text-sm">Show online only</span>
               </label>
               <span className="text-xs text-zinc-500">
-                ({onlineUsers.length - 1} online)
+                ({onlineFriends.length} online)
               </span>
             </div>
           )}
@@ -127,60 +158,74 @@ function Sidebar() {
                       alt={user.name}
                       className="object-cover rounded-full size-12"
                     />
-                    {onlineUsers.includes(user._id) && (
+                    {isOnline(user._id) && (
                       <span className="absolute bottom-0 right-0 bg-green-500 rounded-full size-3 ring-2 ring-zinc-900" />
                     )}
                   </div>
-                  <div className="min-w-0 text-left">
-                    <div className="text-sm font-medium truncate sm:text-base">
-                      {user.name}
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium truncate sm:text-base">
+                        {user.name}
+                      </div>
+                      <span className="text-[10px] text-zinc-400">
+                        {formatTime(user.lastMessageAt)}
+                      </span>
                     </div>
-                    <div className="text-xs text-zinc-400 sm:text-sm">
-                      {onlineUsers.includes(user._id) ? "Online" : "Offline"}
+                    <div className="text-xs truncate text-zinc-400 sm:text-sm">
+                      {user.lastMessage
+                        ? user.lastMessage
+                        : isOnline(user._id)
+                        ? "Online"
+                        : "Offline"}
                     </div>
                   </div>
                 </button>
               ))
             ) : (
               <div className="py-4 text-center text-zinc-500">
-                No online users
+                {showOnlineOnly ? "No online users" : "No friends yet"}
               </div>
             ))}
           {selectedTab === "groups" && (
             <>
-              {groups.length > 0 ? (
-                <>
-                  {groups.map((group) => (
-                    <button
-                      key={group._id}
-                      onClick={() => {
-                        setSelectedGroup(group);
-                        setSidebarOpen(false);
-                      }}
-                      className={`w-full p-3 flex items-center gap-3 hover:bg-base-300 transition-colors ${
-                        selectedGroup?._id === group._id
-                          ? "bg-base-300 ring-1 ring-base-300"
-                          : ""
-                      }`}
-                    >
-                      <div className="relative">
-                        <img
-                          src={group.profilePic || "/1.jpg"}
-                          alt={group.name}
-                          className="object-cover rounded-full size-12"
-                        />
-                      </div>
-                      <div className="min-w-0 text-left">
+              {sortedGroups.length > 0 ? (
+                sortedGroups.map((group) => (
+                  <button
+                    key={group._id}
+                    onClick={() => {
+                      setSelectedGroup(group);
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full p-3 flex items-center gap-3 hover:bg-base-300 transition-colors ${
+                      selectedGroup?._id === group._id
+                        ? "bg-base-300 ring-1 ring-base-300"
+                        : ""
+                    }`}
+                  >
+                    <div className="relative">
+                      <img
+                        src={group.profilePic || "/1.jpg"}
+                        alt={group.name}
+                        className="object-cover rounded-full size-12"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="flex items-center justify-between">
                         <div className="text-sm font-medium truncate sm:text-base">
                           {group.name}
                         </div>
-                        <div className="text-xs text-zinc-400 sm:text-sm">
-                          Group Chat
-                        </div>
+                        <span className="text-[10px] text-zinc-400">
+                          {formatTime(group.lastMessageAt)}
+                        </span>
                       </div>
-                    </button>
-                  ))}
-                </>
+                      <div className="text-xs truncate text-zinc-400 sm:text-sm">
+                        {group.lastMessage
+                          ? group.lastMessage
+                          : "No messages yet"}
+                      </div>
+                    </div>
+                  </button>
+                ))
               ) : (
                 <div className="py-4 text-center text-zinc-500">
                   No groups yet

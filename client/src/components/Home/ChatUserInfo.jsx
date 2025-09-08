@@ -1,4 +1,4 @@
-import { Ban, Trash2 } from "lucide-react";
+import { Ban, Trash2, UserMinus } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useChatStore } from "../../store/useChatStore";
 import { useState } from "react";
@@ -10,13 +10,16 @@ function ChatUserInfo() {
     deleteAllChats,
     blockUser,
     unblockUser,
+    unfriendUser,
     blockedUsers,
   } = useChatStore();
   const { onlineUsers } = useAuthStore();
   const isOnline = onlineUsers.includes(selectedUser._id);
   const isBlocked = blockedUsers.includes(selectedUser._id);
+
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showUnfriendModal, setShowUnfriendModal] = useState(false);
 
   return (
     <div className="space-y-4 text-center">
@@ -29,10 +32,11 @@ function ChatUserInfo() {
         </div>
       </div>
       <h2 className="text-xl font-bold">{selectedUser.name}</h2>
+      <h3 className="text-lg semi-bold">{selectedUser.email}</h3>
       <p className={`badge ${isOnline ? "badge-success" : "badge-ghost"}`}>
         {isOnline ? "Online" : "Offline"}
       </p>
-      <div className="flex justify-center gap-3 mt-4">
+      <div className="flex flex-wrap justify-center gap-3 mt-4">
         <button
           onClick={() => setShowBlockModal(true)}
           className="px-4 btn btn-warning btn-sm rounded-xl"
@@ -47,12 +51,19 @@ function ChatUserInfo() {
           <Trash2 />
           Delete All Chats
         </button>
+        <button
+          onClick={() => setShowUnfriendModal(true)}
+          className="px-4 btn btn-secondary btn-sm rounded-xl"
+        >
+          <UserMinus />
+          Unfriend
+        </button>
       </div>
       {showBlockModal && selectedUser && (
         <ConfirmModal
           title={isBlocked ? "Unblock User" : "Block User"}
           message={`Are you sure you want to ${
-            selectedUser.isBlocked ? "unblock" : "block"
+            isBlocked ? "unblock" : "block"
           } ${selectedUser.name}?`}
           confirmText={isBlocked ? "Yes, Unblock" : "Yes, Block"}
           confirmColor={isBlocked ? "btn-success" : "btn-warning"}
@@ -63,6 +74,7 @@ function ChatUserInfo() {
               blockUser(selectedUser._id);
             }
             setShowBlockModal(false);
+            window.location.href = "/";
           }}
           onCancel={() => setShowBlockModal(false)}
         />
@@ -76,8 +88,23 @@ function ChatUserInfo() {
           onConfirm={() => {
             deleteAllChats(selectedUser._id);
             setShowDeleteModal(false);
+            window.location.href = "/";
           }}
           onCancel={() => setShowDeleteModal(false)}
+        />
+      )}
+      {showUnfriendModal && (
+        <ConfirmModal
+          title="Unfriend User"
+          message={`Are you sure you want to unfriend ${selectedUser.name}?`}
+          confirmText="Yes, Unfriend"
+          confirmColor="btn-secondary"
+          onConfirm={() => {
+            unfriendUser(selectedUser._id);
+            setShowUnfriendModal(false);
+            window.location.href = "/";
+          }}
+          onCancel={() => setShowUnfriendModal(false)}
         />
       )}
     </div>

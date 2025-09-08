@@ -1,6 +1,7 @@
 FROM node:alpine
-WORKDIR /usr/src/app
-COPY package*.json .
-RUN npm ci
+WORKDIR /app
+COPY package*.json ./
 COPY . .
+RUN npm ci
+EXPOSE 7001
 CMD ["npm","run","dev"]

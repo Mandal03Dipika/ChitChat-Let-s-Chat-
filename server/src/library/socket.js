@@ -21,13 +21,23 @@ app.get("/", (req, res) => {
 
 const userSocketMap = {};
 
+export const onlineUsers = new Map();
+
 export function getReceiverSocketId(userId) {
   return userSocketMap[userId];
 }
 
 io.use((socket, next) => {
   const event = socket.handshake?.auth?.event;
-  if (event === "login" || event === "register") {
+  if (
+    event === "login" ||
+    event === "register" ||
+    event === "verifyOtp" ||
+    event === "forgotPassword" ||
+    event === "verifyResetOtp" ||
+    event === "resetPassword" ||
+    event === "resendOtp"
+  ) {
     return next();
   }
   const token = socket.handshake.auth?.token;
@@ -52,14 +62,30 @@ io.on("connection", (socket) => {
   const userId = socket.userId;
   if (userId) {
     userSocketMap[userId] = socket.id;
+    onlineUsers.set(userId, socket.id);
   }
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
   socket.on("register", (data, callback) =>
     authController.register(socket, data, callback)
   );
+  socket.on("verifyOtp", (data, callback) =>
+    authController.verifyOtp(socket, data, callback)
+  );
+  socket.on("resendOtp", (data, callback) =>
+    authController.resendOtp(socket, data, callback)
+  );
   socket.on("login", (data, callback) =>
     authController.login(socket, data, callback)
+  );
+  socket.on("forgotPassword", (data, callback) =>
+    authController.forgotPassword(socket, data, callback)
+  );
+  socket.on("verifyResetOtp", (data, callback) =>
+    authController.verifyResetOtp(socket, data, callback)
+  );
+  socket.on("resetPassword", (data, callback) =>
+    authController.resetPassword(socket, data, callback)
   );
   socket.on("logout", (data, callback) =>
     authController.logout(socket, data, callback)
@@ -144,10 +170,14 @@ io.on("connection", (socket) => {
   socket.on("getFriends", (data, callback) =>
     messageController.getFriends(socket, data, callback)
   );
+  socket.on("getOnlineFriends", (data, callback) =>
+    authController.getOnlineFriends(socket, data, callback)
+  );
 
   socket.on("disconnect", () => {
     if (socket.userId) {
       delete userSocketMap[socket.userId];
+      onlineUsers.delete(socket.userId);
     }
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });

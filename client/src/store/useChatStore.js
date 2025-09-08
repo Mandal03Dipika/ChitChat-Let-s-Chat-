@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { useAuthStore } from "./useAuthStore";
 import toast from "react-hot-toast";
 
+const notificationSound = new Audio("/notification.mp3");
+
 export const useChatStore = create((set, get) => ({
   messages: [],
   users: [],
@@ -66,7 +68,7 @@ export const useChatStore = create((set, get) => ({
       },
       (response) => {
         if (response.success) {
-          set({ messages: response.messages });
+          set({ messages: response.decryptedMessages });
         } else {
           toast.error(response.error || "Failed to get messages");
         }
@@ -81,12 +83,14 @@ export const useChatStore = create((set, get) => ({
     if (!socket || !selectedUser || !authUser) {
       return toast.error("Missing socket, user, or auth data");
     }
-    const { text, file } = messageData;
+    const { text, file, fileType } = messageData;
     if (!text && !file) {
       return toast.error("Message must have text or an image");
     }
     const payload = {
-      ...messageData,
+      text,
+      file,
+      fileType,
       senderId: authUser._id,
       receiverId: selectedUser._id,
     };
@@ -204,11 +208,21 @@ export const useChatStore = create((set, get) => ({
 
   subscribeToMessages: () => {
     const { selectedUser } = get();
-    if (!selectedUser) return;
     const socket = useAuthStore.getState().socket;
     socket.on("newMessage", (newMessage) => {
-      if (newMessage.senderId !== selectedUser._id) return;
-      set({ messages: [...get().messages, newMessage] });
+      if (!selectedUser || newMessage.senderId !== selectedUser._id) {
+        notificationSound.currentTime = 0;
+        notificationSound.play().catch(() => {});
+        if (Notification.permission === "granted") {
+          new Notification("New Message", {
+            body: newMessage.text || "Sent a file",
+          });
+        }
+      }
+      if (selectedUser && newMessage.senderId === selectedUser._id) {
+        set({ messages: [...get().messages, newMessage] });
+      }
+      get().updateFriendLastMessage(newMessage);
     });
   },
 
@@ -236,7 +250,7 @@ export const useChatStore = create((set, get) => ({
     const socket = useAuthStore.getState().socket;
     socket.emit("getGroupMessages", { groupId }, (response) => {
       if (response.success) {
-        set({ messages: response.messages });
+        set({ messages: response.decryptedMessages });
       } else {
         toast.error(response.error || "Failed to get group messages");
       }
@@ -267,12 +281,14 @@ export const useChatStore = create((set, get) => ({
   },
 
   subscribeToGroupMessages: () => {
-    const { selectedGroup } = get();
-    if (!selectedGroup) return;
     const socket = useAuthStore.getState().socket;
+    socket.off("newGroupMessage");
     socket.on("newGroupMessage", (newMessage) => {
-      if (newMessage.groupId !== selectedGroup._id) return;
-      set({ messages: [...get().messages, newMessage] });
+      const { selectedGroup, messages } = get();
+      if (selectedGroup && newMessage.groupId === selectedGroup._id) {
+        set({ messages: [...messages, newMessage] });
+      }
+      get().updateGroupLastMessage(newMessage);
     });
   },
 
@@ -466,6 +482,27 @@ export const useChatStore = create((set, get) => ({
     );
   },
 
+  updateFriendLastMessage: (message) => {
+    set((state) => {
+      const updatedFriends = state.friends.map((friend) =>
+        friend._id === message.senderId || friend._id === message.receiverId
+          ? {
+              ...friend,
+              lastMessage:
+                message.text || `[${message.fileType?.toUpperCase()}]`,
+              lastMessageAt: message.createdAt,
+            }
+          : friend
+      );
+      updatedFriends.sort(
+        (a, b) =>
+          new Date(b.lastMessageAt || 0).getTime() -
+          new Date(a.lastMessageAt || 0).getTime()
+      );
+      return { friends: updatedFriends };
+    });
+  },
+
   getFriends: async () => {
     set({ isUsersLoading: true });
     const { authUser, socket } = useAuthStore.getState();
@@ -474,16 +511,9 @@ export const useChatStore = create((set, get) => ({
       set({ isUsersLoading: false });
       return;
     }
-    socket.emit("getFriends", { userId: authUser._id }, async (response) => {
+    socket.emit("getFriends", { userId: authUser._id }, (response) => {
       if (response.success) {
-        const friend = [];
-        for (const req of response.friends) {
-          const user = await get()
-            .getUser(req._id)
-            .catch(() => null);
-          if (user) friend.push(user);
-        }
-        set({ friends: friend });
+        set({ friends: response.friends });
       } else {
         toast.error(response.error || "Failed to fetch friends");
       }
@@ -501,17 +531,23 @@ export const useChatStore = create((set, get) => ({
       fromUserId: authUser._id,
       toUserId,
     };
-    socket.emit("toggleFriendRequest", payload, (response) => {
+    socket.emit("toggleFriendRequest", payload, async (response) => {
       if (response.success) {
         if (response.sent) {
+          const user = await get()
+            .getUser(toUserId)
+            .catch(() => null);
+          if (user) {
+            set((state) => ({
+              sentRequests: [...(state.sentRequests || []), user],
+            }));
+          }
           toast.success("Friend request sent");
         } else if (response.cancelled) {
-          toast.error("Friend request cancelled");
           set((state) => ({
-            friendRequests: state.friendRequests.filter(
-              (req) => req._id !== toUserId
-            ),
+            sentRequests: state.sentRequests.filter((u) => u._id !== toUserId),
           }));
+          toast.error("Friend request cancelled");
         }
       } else {
         toast.error(response.error || "Failed to toggle friend request");
@@ -536,6 +572,28 @@ export const useChatStore = create((set, get) => ({
     socket.off("friendRequestRejected");
   },
 
+  updateGroupLastMessage: (message) => {
+    set((state) => {
+      const updatedGroups = state.groups.map((group) =>
+        group._id === message.groupId
+          ? {
+              ...group,
+              lastMessage:
+                message.text || `[${message.fileType?.toUpperCase()}]`,
+              lastMessageAt: message.createdAt,
+              lastMessageSender: message.senderId,
+            }
+          : group
+      );
+      updatedGroups.sort(
+        (a, b) =>
+          new Date(b.lastMessageAt || 0).getTime() -
+          new Date(a.lastMessageAt || 0).getTime()
+      );
+      return { groups: [...updatedGroups] };
+    });
+  },
+
   setSelectedUser: (selectedUser) =>
     set({
       selectedUser,
@@ -550,6 +608,7 @@ export const useChatStore = create((set, get) => ({
       selectedUser: null,
       showChatInfo: false,
       groupCreation: false,
+      messages: [],
     }),
 
   setShowChatInfo: (value) => set({ showChatInfo: value }),
