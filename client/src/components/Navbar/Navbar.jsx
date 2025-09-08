@@ -19,16 +19,23 @@ function Navbar() {
       <div className="container h-16 px-4 mx-auto">
         <div className="flex items-center justify-between h-full">
           <div className="flex items-center gap-4 sm:gap-8">
-            <button
-              className="p-2 text-white rounded-md lg:hidden bg-primary"
-              onClick={() => setSidebarOpen((prev) => !prev)}
-            >
-              <Menu className="w-6 h-6" />
-            </button>
+            {authUser && (
+              <button
+                className="flex items-center justify-center rounded-lg size-9 bg-primary/10 lg:hidden"
+                onClick={() => setSidebarOpen((prev) => !prev)}
+              >
+                <Menu className="w-6 h-6 text-primary" />
+              </button>
+            )}
             <Link
               to="/"
               className="flex items-center gap-2.5 hover:opacity-80 transition-all"
             >
+              {!authUser && (
+                <div className="flex items-center justify-center rounded-lg sm:hidden size-9 bg-primary/10">
+                  <MessageSquare className="w-5 h-5 text-primary" />
+                </div>
+              )}
               <div className="items-center justify-center hidden rounded-lg sm:flex size-9 bg-primary/10">
                 <MessageSquare className="w-5 h-5 text-primary" />
               </div>
