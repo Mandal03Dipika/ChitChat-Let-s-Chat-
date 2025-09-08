@@ -84,8 +84,12 @@ function Sidebar() {
       )}
       <aside
         className={`fixed z-50 top-16 left-0 w-64 bg-base-100 border-r border-base-300 transition-transform duration-300 ease-in-out transform
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-          lg:translate-x-0 lg:static flex flex-col h-[calc(100vh-4rem)]`}
+          ${
+            sidebarOpen
+              ? "translate-x-0 h-[calc(100vh-4rem)]"
+              : "-translate-x-full h-full"
+          }
+          lg:translate-x-0 lg:static flex flex-col`}
       >
         <div className="flex items-center justify-between flex-none p-3 border-b border-base-300">
           <button
