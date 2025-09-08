@@ -22,6 +22,7 @@ export const useChatStore = create((set, get) => ({
   friends: [],
   sentRequests: [],
   receivedRequests: [],
+  sidebarOpen: false,
 
   getUsers: async () => {
     set({ isUsersLoading: true });
@@ -616,4 +617,10 @@ export const useChatStore = create((set, get) => ({
   setGroupCreation: (value) => set({ groupCreation: value }),
 
   setGroupEdit: (value) => set({ groupEdit: value }),
+
+  setSidebarOpen: (value) =>
+    set((state) => ({
+      sidebarOpen:
+        typeof value === "function" ? value(state.sidebarOpen) : value,
+    })),
 }));

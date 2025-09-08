@@ -16,13 +16,14 @@ function Sidebar() {
     selectedGroup,
     setSelectedGroup,
     isGroupLoading,
+    setSidebarOpen,
+    sidebarOpen,
     setGroupCreation,
   } = useChatStore();
 
   const { onlineFriends, getOnlineFriends } = useAuthStore();
 
   const [selectedTab, setSelectedTab] = useState("chats");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
 
   const filteredUsers = useMemo(() => {
@@ -75,14 +76,6 @@ function Sidebar() {
 
   return (
     <>
-      <div className="fixed z-50 lg:hidden top-4 left-4">
-        <button
-          onClick={() => setSidebarOpen((prev) => !prev)}
-          className="p-2 text-white rounded-md shadow bg-primary"
-        >
-          ☰
-        </button>
-      </div>
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
@@ -90,14 +83,14 @@ function Sidebar() {
         />
       )}
       <aside
-        className={`fixed z-50 top-0 left-0 h-full bg-base-100 border-r border-base-300 transition-transform duration-300 ease-in-out
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} 
-          lg:translate-x-0 lg:static lg:flex lg:flex-col w-64`}
+        className={`fixed z-50 top-16 left-0 w-64 bg-base-100 border-r border-base-300 transition-transform duration-300 ease-in-out transform
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:translate-x-0 lg:static flex flex-col h-[calc(100vh-4rem)]`}
       >
-        <div className="flex items-center justify-between p-3 border-b border-base-300">
+        <div className="flex items-center justify-between flex-none p-3 border-b border-base-300">
           <button
             onClick={() => setSelectedTab("chats")}
-            className={`flex-1 py-2 text-sm font-medium rounded-md ${
+            className={`flex-1 py-2 text-sm font-medium rounded-md mr-2 ${
               selectedTab === "chats" ? "bg-base-300" : "hover:bg-base-200"
             }`}
           >
@@ -112,7 +105,7 @@ function Sidebar() {
             Groups
           </button>
         </div>
-        <div className="w-full p-5 border-b border-base-300">
+        <div className="flex-none w-full p-5 border-b border-base-300">
           <div className="flex items-center gap-2">
             <Users className="size-6" />
             <span className="font-medium lg:block">
@@ -136,7 +129,7 @@ function Sidebar() {
             </div>
           )}
         </div>
-        <div className="flex-1 w-full py-3 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-400 scrollbar-track-zinc-900/10">
           {selectedTab === "chats" &&
             (filteredUsers.length > 0 ? (
               filteredUsers.map((user) => (
